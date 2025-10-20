@@ -7,59 +7,40 @@ dotenv.config();
 
 const app = express();
 
-// ✅ FIXED: Only frontend domains allowed
-const allowedOrigins = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'https://takathur-backend.vercel.app', // Your frontend Vercel domain
-  // Add more frontend domains here if needed
-];
-
-// ✅ FIXED: Better CORS configuration
+// ✅ CORS - Allow all origins (production ready)
 app.use(cors({
-  origin: function(origin, callback){
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if(!origin) return callback(null, true); 
-    
-    if(allowedOrigins.indexOf(origin) === -1){
-      const msg = `CORS policy: Origin ${origin} is not allowed.`;
-      console.error(msg); // Log the blocked origin
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
+  origin: true, // Accept all origins
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   optionsSuccessStatus: 200
 }));
 
-// ✅ Handle preflight requests explicitly (fixed for Express 5+)
-app.use((req, res, next) => {
-  if (req.method === 'OPTIONS') {
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept');
-    return res.sendStatus(200);
-  }
-  next();
-});
-
+// ✅ Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes
+// ✅ Routes
 app.use('/api', messageRoutes);
 
+// ✅ Root endpoint
 app.get('/', (req, res) => {
   res.json({
     message: 'Email Service API is running',
     endpoints: {
       sendMessage: 'POST /api/send-message'
-    }
+    },
+    status: 'OK',
+    timestamp: new Date().toISOString()
   });
 });
 
-// Error handling middleware
+// ✅ Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy' });
+});
+
+// ✅ Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.message);
   res.status(500).json({ 
@@ -68,12 +49,20 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
+// ✅ 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found'
+  });
+});
+
+// ✅ Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`✅ Allowed origins:`, allowedOrigins);
+  console.log(`✅ CORS: Enabled for all origins`);
 });
 
 export default app;
